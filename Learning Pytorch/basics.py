@@ -1,83 +1,87 @@
 import torch
 import torchvision
+import torchvision.transforms as transforms
 from torch.utils.data import Dataset, DataLoader
 import numpy as np
 import torch.nn as nn
+import torch.nn.functional as F
 from sklearn import datasets
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 import math
+from torch.utils.tensorboard import SummaryWriter
+import sys
 
 # basic element-wise operations #
 
-x = torch.rand(3, 3)
-y = torch.rand(3, 3)
+# x = torch.rand(3, 3)
+# y = torch.rand(3, 3)
 
 # addition #
-a = x + y
-b = torch.add(x, y)
+# a = x + y
+# b = torch.add(x, y)
 # addition can also be done through reassigning
-y.add_(x)  # underscore denotes that this operation will be done on y
-y += x
+# y.add_(x)  # underscore denotes that this operation will be done on y
+# y += x
 
 # subtraction #
-a = x - y
-b = torch.sub(x, y)
-y.sub_(x)
+# a = x - y
+# b = torch.sub(x, y)
+# y.sub_(x)
 
 # multiplication #
-a = x * y
-b = torch.mul(x, y)
-y.mul_(x)
+# a = x * y
+# b = torch.mul(x, y)
+# y.mul_(x)
 
 # division #
-a = x / y
-b = torch.div(x, y)
-y.div_(x)
+# a = x / y
+# b = torch.div(x, y)
+# y.div_(x)
 
 # slicing #
-a = x[0, :]
+# a = x[0, :]
 
 # reshaping #
-x = torch.rand(4, 2)
-y = x.view(2, 4)  # can use -1 as an input to have torch figure out dimension needed
+# x = torch.rand(4, 2)
+# y = x.view(2, 4)  # can use -1 as an input to have torch figure out dimension needed
 
 # conversion from tensor to numpy #
-a = torch.rand(5)
-b = a.numpy()
+# a = torch.rand(5)
+# b = a.numpy()
 # changes made to the tensor also change the numpy array
-a.add_(torch.ones(5))
+# a.add_(torch.ones(5))
 
 # conversion from numpy to tensor #
-b = np.random.random(5)
-a = torch.from_numpy(b)
+# b = np.random.random(5)
+# a = torch.from_numpy(b)
 
 # moving to GPU if it is available #
-if torch.cuda.is_available():
-    device = torch.device("cuda")
-    x = torch.ones(5, device=device)
-    y = torch.rand(5)
-    y = y.to(device)
-    z = x + y
-    z = z.to("cpu")
+# if torch.cuda.is_available():
+#     device = torch.device("cuda")
+#     x = torch.ones(5, device=device)
+#     y = torch.rand(5)
+#     y = y.to(device)
+#     z = x + y
+#     z = z.to("cpu")
 
 # requires gradient #
 # When declaring a tensor, if the gradient will be calculated later, this must be added
     # so that torch will track the operations done to it so the gradient can be calculated
-x = torch.ones(5, requires_grad=True)
+# x = torch.ones(5, requires_grad=True)
 
 # autograd package for calculating gradients #
-x = torch.randn(3, requires_grad=True)  # randn gives normally distributed random numbers
+# x = torch.randn(3, requires_grad=True)  # randn gives normally distributed random numbers
+#
+# y = x + 2
+# y *= x
 
-y = x + 2
-y *= x
-
-v = torch.tensor([0.1, 1.0, 0.001], dtype=torch.float32)
-y.backward(v)  # calculates dy/dx; must have an argument v if y is not a scalar value
-z = x.grad
+# v = torch.tensor([0.1, 1.0, 0.001], dtype=torch.float32)
+# y.backward(v)  # calculates dy/dx; must have an argument v if y is not a scalar value
+# z = x.grad
 # After running the gradient command, we should zero it out so that it is accurate every iteration
-x.grad.zero_()
+# x.grad.zero_()
 # Example with an optimizer
 # optimizer = torch.optim.SGD(x, lr=0.01, momentum=0.9)
 # optimizer.step()
@@ -372,4 +376,294 @@ x.grad.zero_()
 # plt.savefig('Breast_cancer_loss.png')
 # plt.show()
 
+# implementing custom datasets #
+# class WineDataset(Dataset):
+#
+#     def __init__(self, transform=None):
+#         # data loading
+#         xy = np.loadtxt('./wine.csv', delimiter=",", dtype=np.float32, skiprows=1)
+#         self.x = xy[:, 1:]
+#         self.y = xy[:, [0]] # n_samples = 1
+#         self.n_samples = xy.shape[0]
+#
+#         self.transform = transform
+#
+#     def __getitem__(self, index):
+#         # dataset[0]
+#         sample = self.x[index], self.y[index]
+#         if self.transform:
+#             sample = self.transform(sample)
+#         return sample
+#
+#     def __len__(self):
+#         # len(dataset)
+#         return self.n_samples
+#
+# class ToTensor:
+#     def __call__(self, sample):
+#         inputs, targets = sample
+#         return torch.from_numpy(inputs), torch.from_numpy(targets)
+#
+# class MulTransform:
+#     def __init__(self, factor):
+#         self.factor = factor
+#
+#     def __call__(self, sample):
+#         inputs, targets = sample
+#         inputs *= self.factor
+#         return inputs, targets
+#
+# composed = torchvision.transforms.Compose([ToTensor(), MulTransform(2)])
+#
+# def main():
+#     dataset = WineDataset(transform=composed)
+#     first_data = dataset[0]
+#     features, labels = first_data
+#     print(type(features), type(labels))
+    # dataloader = DataLoader(dataset=dataset, batch_size=4, shuffle=True, num_workers=2)
 
+    # training loop
+    # num_epochs = 2
+    # total_samples = len(dataset)
+    # n_iterations = math.ceil(total_samples / 4)  # batch size = 4
+    # print(total_samples, n_iterations)
+    #
+    # for epoch in range(num_epochs):
+    #     for i, (inputs, labels) in enumerate(dataloader):
+    #         # forward, backward, update
+    #         if (i + 1) % 5 == 0:
+    #             print(f'Epoch: {epoch + 1}/{num_epochs}, Step {i + 1}/{n_iterations}| Inputs {inputs.shape} | Labels {labels.shape}')
+
+#  This must be used to avoid code running more than once on windows!
+# if __name__ == '__main__':
+#     main()
+
+# Softmax function - transform that makes all values in a list sum to 1 #
+# def softmax(x):
+#     return np.exp(x) / np.sum(np.exp(x), axis=0)
+#
+# x = np.array([2.0, 1.0, 0.1])
+# outputs = softmax(x)
+# print('Softmax numpy:', outputs)
+#
+# x = torch.tensor([2.0, 1.0, 0.1])
+# outputs = torch.softmax(x, dim=0)
+# print('Softmax pytorch:', outputs)
+
+# Cross-Entropy Loss #
+# Only used for one-hot encoding (i.e. classification problems)
+# def cross_entropy(actual, predicted):
+#     loss = -np.sum(actual * np.log(predicted))
+#     return loss
+#
+# Y = np.array([1,0,0])
+#
+# Y_pred_good = np.array([0.7,0.2,0.1])
+# Y_pred_bad = np.array([0.1,0.3,0.6])
+# l1 = cross_entropy(Y, Y_pred_good)
+# l2 = cross_entropy(Y, Y_pred_bad)
+# print(f'Loss1 numpy: {l1:.4f}')
+# print(f'Loss2 numpy: {l2:.4f}')
+
+# loss = nn.CrossEntropyLoss()  # This implements both softmax and cross entropy loss into one step
+# Y = torch.tensor([0])  # correct class label, not one hot encoded
+
+# dimension of nsamples * nclasses = 1x3
+# Y_pred_good = torch.tensor([[2,1,0.1]])
+# Y_pred_bad = torch.tensor([[0.5,2,0.3]])
+#
+# l1 = loss(Y_pred_good, Y)
+# l2 = loss(Y_pred_bad, Y)
+# print(f'Loss1 torch: {l1.item():.4f}')
+# print(f'Loss2 torch: {l2.item():.4f}')
+#
+# _, prediction1 = torch.max(Y_pred_good, 1)
+# _, prediction2 = torch.max(Y_pred_bad, 1)
+#
+# print(prediction1)
+# print(prediction2)
+
+# also works for more than one sample #
+# Y = torch.tensor([2, 0, 1])  # correct class label, not one hot encoded
+
+# # dimension of nsamples * nclasses = 3x3
+# Y_pred_good = torch.tensor([[0.1,1.0,2.1], [2,1.0,0.1], [0.1,3.0,0.1]])
+# Y_pred_bad = torch.tensor([[2.1,1.0,0.1], [0.1,1.0,2.1], [0.1,3.0,0.1]])
+#
+# l1 = loss(Y_pred_good, Y)
+# l2 = loss(Y_pred_bad, Y)
+# print(f'Loss1 torch: {l1.item():.4f}')
+# print(f'Loss2 torch: {l2.item():.4f}')
+#
+# _, prediction1 = torch.max(Y_pred_good, 1)
+# _, prediction2 = torch.max(Y_pred_bad, 1)
+#
+# print(prediction1)
+# print(prediction2)
+
+# Activation functions #
+# Tanh - hidden layers
+# Sigmoid - last layer of binary classification
+# ReLU - useful for hidden layers
+# Leaky ReLU - useful for hidden layers; updated ReLU that avoids neurons becoming dead
+# Softmax - last layer of multiclass classification
+
+
+# Setting up a multi-layer neural net #
+# class NeuralNet(nn.Module):
+#     def __init__(self, input_size, hidden_size):
+#         super(NeuralNet, self).__init__()
+#         self.linear1 = nn.Linear(input_size, hidden_size)
+#         self.relu = nn.ReLU()
+#         self.linear2 = nn.Linear(hidden_size, 1)
+#         self.sigmoid = nn.Sigmoid()
+#
+#     def forward(self, x):
+#         out = self.linear1(x)
+#         out = self.reult(out)
+#         out = self.linear2(out)
+#         out = self.sigmoid(out)
+#         return out
+
+# option 2 #
+# class NeuralNet(nn.Module):
+#     def __init__(self, input_size, hidden_size):
+#         super(NeuralNet, self).__init__()
+#         self.linear1 = nn.Linear(input_size, hidden_size)
+#         self.linear2 = nn.Linear(hidden_size, 1)
+#
+#     def forward(self, x):
+#         out = torch.relu(self.linear1(x))
+#         out = torch.sigmoid(self.linear2(out))
+#         return out
+
+# F.leaky_relu()
+
+# Multi-layer neural network example #
+# neural network with one hidden layer #
+# device config
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+# hyper parameters
+input_size = 784  # 28x28
+hidden_size = 100
+num_classes = 10
+num_epochs = 10
+batch_size = 64
+learning_rate = 0.001
+
+# MNIST
+class NeuralNet(nn.Module):
+    def __init__(self, input_size, hidden_size, num_classes):
+        super(NeuralNet, self).__init__()
+        self.l1 = nn.Linear(input_size, hidden_size)
+        self.relu = nn.ReLU()
+        self.l2 = nn.Linear(hidden_size, num_classes)
+
+    def forward(self, x):
+        out = self.l1(x)
+        out = self.relu(out)
+        out = self.l2(out)
+        return out
+
+
+def main():
+    loss_list = []
+    epoch_list = []
+    train_dataset = torchvision.datasets.MNIST(root='./data', train=True,
+                                               transform=transforms.ToTensor(), download=True)
+
+    test_dataset = torchvision.datasets.MNIST(root='./data', train=False,
+                                              transform=transforms.ToTensor(), download=True)
+
+    train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
+
+    test_loader = torch.utils.data.DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
+
+    examples = iter(train_loader)
+    example_data, example_targets = next(examples)
+    #
+    # for i in range(6):
+    #     plt.subplot(2, 3, i + 1)
+    #     plt.imshow(example_data[i][0], cmap='gray')
+    # plt.show()
+
+    # writer = SummaryWriter('runs/mnist1')
+    # img_grid = torchvision.utils.make_grid(example_data)
+    # writer.add_image('mnist_images', img_grid)
+
+    model = NeuralNet(input_size, hidden_size, num_classes)
+
+    # loss and optimizer
+    criterion = nn. CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+    # writer.add_graph(model, example_data.reshape(-1, 28*28))
+
+    # training loop
+    n_total_steps = len(train_loader)
+    running_loss = 0.0
+    running_correct = 0.0
+    for epoch in range(num_epochs):
+        for i, (images, labels) in enumerate(train_loader):
+            #  100, 1, 28, 28 -> 100, 784
+            images = images.reshape(-1, 28*28).to(device)
+            labels = labels.to(device)
+
+            # forward
+            outputs = model(images)
+            loss = criterion(outputs, labels)
+
+            # backwards
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            running_loss += loss.item()
+
+            _, predicted = torch.max(outputs, 1)
+            running_correct += (predicted == labels).sum().item()
+
+            if (i+1) % 1 == 0:
+                print(f'epoch: {epoch+1} / {num_epochs} | step {i+1} / {n_total_steps} | loss = {loss.item():.4f}')
+                # writer.add_scalar("Training loss", running_loss / 100, epoch * n_total_steps + i)
+                # writer.add_scalar("Accuracy", running_correct / 100, epoch * n_total_steps + i)
+                running_loss = 0.0
+                running_correct = 0.0
+                loss_list.append(float(loss.item()))
+                epoch_list.append(float(i+1+n_total_steps*epoch))
+
+    # writer.close()
+    # test and evaluation
+    with torch.no_grad():
+        n_correct = 0
+        n_samples = 0
+        for images, labels in test_loader:
+            images = images.reshape(-1, 28*28).to(device)
+            labels = labels.to(device)
+            outputs = model(images)
+
+            _, predictions = torch.max(outputs, 1)
+
+            n_samples += labels.shape[0]
+            n_correct += (predictions == labels).sum().item()
+
+    acc = 100.0 * n_correct / n_samples
+    print(f'Accuracy = {acc}%')
+    loss_list_avg = []
+    for index, loss in enumerate(loss_list):
+        if index == 0:
+            loss_list_avg.append(((loss_list[0] + loss_list[1]) / 2))
+        elif index == len(loss_list) - 1:
+            loss_list_avg.append((loss + loss_list[-2]) / 2)
+        else:
+            loss_list_avg.append((loss + loss_list[int(index + 1)] + loss_list[int(index - 1)]) / 3)
+    plt.plot(epoch_list, loss_list_avg, 'b')
+    plt.title('Loss vs Iteration')
+    plt.xlabel('Iteration #')
+    plt.ylabel('Cross Entropy Loss')
+    plt.show()
+
+
+if __name__ == '__main__':
+    main()
