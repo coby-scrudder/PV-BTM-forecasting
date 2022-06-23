@@ -18,24 +18,33 @@ import os
 # import statistics
 # import csv
 import math
+import time
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
 else:
     device = torch.device('cpu')
 
-data_directory = 'D:/REU Research/Trial Combined Data/'
+print(device)
+
+data_directory = 'C:/Users/Sarlab/Downloads/Trial Combined Data/Trial Combined Data/'
+
+time_start = time.time()
 
 mm = MinMaxScaler()
 ss = StandardScaler()
 
-num_training_csvs = 5
+num_training_csvs = 20
 num_test_csvs = 1
 
 count = 0
 
 for csv in os.listdir(data_directory):
-    df = pd.read_csv(data_directory + csv, index_col='measured_on', parse_dates=True)
+    try:
+        df = pd.read_csv(data_directory + csv, index_col='measured_on', parse_dates=True)
+    except:
+        print(csv)
+        sys.exit()
     X_pre = df.iloc[:, 1:26]
     y_pre = df.iloc[:, :1]
 
@@ -70,22 +79,20 @@ y_train_tensor = Variable(torch.Tensor(y_train))
 y_test_tensor = Variable(torch.Tensor(y_test))
 
 X_train_tensor = X_train_tensor.to(device)
-X_test_tensor = X_test_tensor.to(device)
 
 y_train_tensor = y_train_tensor.to(device)
-y_test_tensor = y_test_tensor.to(device)
 
-X_train_tensors_final = torch.reshape(X_train_tensor,   (X_train_tensor.shape[0], 1, X_train_tensor.shape[1]))
+X_train_tensors_final = torch.reshape(X_train_tensor,   (X_train_tensor.shape[0], 1, X_train_tensor.shape[1])).to(device)
 
-X_test_tensors_final = torch.reshape(X_test_tensor,  (X_test_tensor.shape[0], 1, X_test_tensor.shape[1]))
+X_test_tensors_final = torch.reshape(X_test_tensor,  (X_test_tensor.shape[0], 1, X_test_tensor.shape[1])).to(device)
 
 
-num_epochs = 4  # 1 epoch
-learning_rate = 0.0001  # 0.001 lr
+num_epochs = 20  # 1 epoch
+learning_rate = 0.001  # 0.0001 lr
 batch_size = 96
 
 input_size = 25  # number of features
-hidden_size = 2  # number of features in hidden state
+hidden_size = 20  # number of features in hidden state
 num_layers = 1  # number of stacked lstm layers
 
 num_classes = 1  # number of output classes
@@ -101,34 +108,36 @@ class LSTM1(nn.Module):
         self.seq_length = seq_length  # sequence length
 
         self.lstm = nn.LSTM(input_size=input_size, hidden_size=hidden_size,
-                            num_layers=num_layers, batch_first=True)  # lstm
-        self.fc_1 = nn.Linear(hidden_size, 300)  # fully connected 1
-        self.fc_2 = nn.Linear(300, 300)
-        self.fc = nn.Linear(300, num_classes)  # fully connected last layer
+                            num_layers=num_layers, batch_first=True).to(device)  # lstm
+        self.fc_1 = nn.Linear(hidden_size, 100)  # fully connected 1
+        self.fc_2 = nn.Linear(100, 100)
+        self.fc = nn.Linear(100, num_classes)  # fully connected last layer
 
         self.relu = nn.ReLU()
         self.LeakyReLU = nn.LeakyReLU()
         self.tanh = nn.Tanh()
 
     def forward(self, x):
-        h_0 = Variable(torch.rand(self.num_layers, x.size(0), self.hidden_size))  # hidden state
-        c_0 = Variable(torch.rand(self.num_layers, x.size(0), self.hidden_size))  # internal state
+        h_0 = Variable(torch.rand(self.num_layers, x.size(0), self.hidden_size)).to(device)  # hidden state
+        c_0 = Variable(torch.rand(self.num_layers, x.size(0), self.hidden_size)).to(device)  # internal state
         # Propagate input through LSTM
         output, (hn, cn) = self.lstm(x, (h_0, c_0))  # lstm with input, hidden, and internal state
+        hn = hn.to(device)
+        cn = cn.to(device)
         hn = hn.view(-1, self.hidden_size)  # reshaping the data for Dense layer next
-        out = self.tanh(hn)
-        out = self.fc_1(out)  # first Dense
-        out = self.tanh(out)  # relu
-        out = self.fc_2(out)
-        out = self.tanh(out)
-        out = self.fc(out)  # Final Output
+        out = self.relu(hn).to(device)
+        out = self.fc_1(out).to(device)  # first Dense
+        out = self.relu(out).to(device)  # relu
+        out = self.fc_2(out).to(device)
+        out = self.relu(out).to(device)
+        out = self.fc(out).to(device)  # Final Output
         return out
 
 
-lstm1 = LSTM1(num_classes, input_size, hidden_size, num_layers, X_train_tensors_final.shape[1])  # our lstm class
+lstm1 = LSTM1(num_classes, input_size, hidden_size, num_layers, X_train_tensors_final.shape[1]).to(device)  # our lstm class
 
 criterion = torch.nn.MSELoss()    # mean-squared error for regression
-optimizer = torch.optim.SGD(lstm1.parameters(), lr=learning_rate)
+optimizer = torch.optim.Adam(lstm1.parameters(), lr=learning_rate)
 
 losses = []
 iters = []
@@ -142,12 +151,15 @@ for epoch in range(num_epochs):
         X_train_tensor_iter = X_train_tensors_final[start_index:end_index]
         y_train_tensor_iter = y_train_tensor[start_index:end_index]
 
+        X_train_tensor_iter = X_train_tensor_iter.to(device)
+        y_train_tensor_iter = y_train_tensor_iter.to(device)
+
         length = y_train_tensor_iter.shape[0]
         for i in range(length):
             if math.isnan(y_train_tensor_iter[i][0].item()):
                 y_train_tensor_iter[i][0] = y_train_tensor_iter[i - 1][0]
 
-        outputs = lstm1.forward(X_train_tensor_iter)  # forward pass
+        outputs = lstm1.forward(X_train_tensor_iter).to(device)  # forward pass
         optimizer.zero_grad()  # calculate the gradient, manually setting to 0
 
         # obtain the loss function
@@ -160,7 +172,7 @@ for epoch in range(num_epochs):
 
         optimizer.step()  # improve from loss, i.e. backprop
         if iteration % 100 == 0:
-            print(f"Iteration: {iter_count}, loss: {loss.item()}")
+            print(f"Epoch: {epoch},Iteration: {iter_count}, loss: {loss.item()}, time elapsed: {(time.time() - time_start):.2f} seconds")
             iters.append(iter_count)
             losses.append(loss.item())
         iter_count += 1
@@ -169,3 +181,20 @@ plt.plot(iters, losses)
 plt.xlabel('Iteration')
 plt.ylabel('MSE Loss')
 plt.show()
+
+train_predict = lstm1(X_test_tensors_final).to('cpu')
+#data_predict = mm.fit_transform(train_predict.data.numpy())
+data_predict = train_predict.data.numpy()
+dataY_plot = y_test_tensor.data.numpy()
+
+plt.plot(dataY_plot[:5000], label='Actual Data')
+plt.plot(data_predict[:5000], label='Predicted Data')
+plt.legend()
+plt.show()
+
+plt.plot(dataY_plot[:], label='Actual Data')
+plt.plot(data_predict[:], label='Predicted Data')
+plt.legend()
+plt.show()
+
+
