@@ -18,6 +18,7 @@ import os
 # import statistics
 # import csv
 import math
+import time
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
@@ -25,6 +26,8 @@ else:
     device = torch.device('cpu')
 
 data_directory = 'D:/REU Research/Trial Combined Data/'
+
+time_start = time.time()
 
 mm = MinMaxScaler()
 ss = StandardScaler()
@@ -75,12 +78,12 @@ X_test_tensor = X_test_tensor.to(device)
 y_train_tensor = y_train_tensor.to(device)
 y_test_tensor = y_test_tensor.to(device)
 
-X_train_tensors_final = torch.reshape(X_train_tensor,   (X_train_tensor.shape[0], 1, X_train_tensor.shape[1]))
+X_train_tensors_final = torch.reshape(X_train_tensor,   (X_train_tensor.shape[0], 1, X_train_tensor.shape[1])).to(device)
 
-X_test_tensors_final = torch.reshape(X_test_tensor,  (X_test_tensor.shape[0], 1, X_test_tensor.shape[1]))
+X_test_tensors_final = torch.reshape(X_test_tensor,  (X_test_tensor.shape[0], 1, X_test_tensor.shape[1])).to(device)
 
 
-num_epochs = 4  # 1 epoch
+num_epochs = 1  # 1 epoch
 learning_rate = 0.0001  # 0.001 lr
 batch_size = 96
 
@@ -111,10 +114,12 @@ class LSTM1(nn.Module):
         self.tanh = nn.Tanh()
 
     def forward(self, x):
-        h_0 = Variable(torch.rand(self.num_layers, x.size(0), self.hidden_size))  # hidden state
-        c_0 = Variable(torch.rand(self.num_layers, x.size(0), self.hidden_size))  # internal state
+        h_0 = Variable(torch.rand(self.num_layers, x.size(0), self.hidden_size)).to(device)  # hidden state
+        c_0 = Variable(torch.rand(self.num_layers, x.size(0), self.hidden_size)).to(device)  # internal state
         # Propagate input through LSTM
         output, (hn, cn) = self.lstm(x, (h_0, c_0))  # lstm with input, hidden, and internal state
+        hn = hn.to(device)
+        cn = cn.to(device)
         hn = hn.view(-1, self.hidden_size)  # reshaping the data for Dense layer next
         out = self.tanh(hn)
         out = self.fc_1(out)  # first Dense
@@ -160,7 +165,7 @@ for epoch in range(num_epochs):
 
         optimizer.step()  # improve from loss, i.e. backprop
         if iteration % 100 == 0:
-            print(f"Iteration: {iter_count}, loss: {loss.item()}")
+            print(f"Epoch: {epoch},Iteration: {iter_count}, loss: {loss.item()}, time elapsed: {time.time() - time_start}")
             iters.append(iter_count)
             losses.append(loss.item())
         iter_count += 1
