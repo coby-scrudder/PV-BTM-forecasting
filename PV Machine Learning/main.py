@@ -27,7 +27,8 @@ else:
 
 print(device)
 
-data_directory = 'C:/Users/Sarlab/Downloads/Trial Combined Data/Trial Combined Data/'
+#  data_directory = 'C:/Users/Sarlab/Downloads/Trial Combined Data/Trial Combined Data/'
+data_directory = 'D:/REU Research/Trial Combined Data/'
 
 time_start = time.time()
 
@@ -196,5 +197,3 @@ plt.plot(dataY_plot[:], label='Actual Data')
 plt.plot(data_predict[:], label='Predicted Data')
 plt.legend()
 plt.show()
-
-
